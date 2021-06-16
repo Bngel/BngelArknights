@@ -1,22 +1,18 @@
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import java.io.IOException;
 import java.net.URLEncoder;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
-import static java.util.Collections.addAll;
-
 public class BngelArknights {
 
-    static final String arknights_token = "https://as.hypergryph.com/user/auth/v1/token_by_phone_password";
-    static private String token = "";
-    static int totalPage = 1;
+    private static final String arknights_token = "https://as.hypergryph.com/user/auth/v1/token_by_phone_password";
+    private static final String arknights_basic = "https://as.hypergryph.com/u8/user/info/v1/basic";
+    private static String token = "";
+    private static int totalPage = 1;
 
     BngelArknights(String phone, String password) {
         initArknightsToken(phone, password);
@@ -27,7 +23,7 @@ public class BngelArknights {
      * @param phone 用户的手机号(即账号)
      * @param password 用户的密码
      */
-    public static void initArknightsToken(String phone, String password) {
+    private void initArknightsToken(String phone, String password) {
         try {
             Document doc = Jsoup.connect(arknights_token)
                     .ignoreContentType(true)
@@ -39,7 +35,6 @@ public class BngelArknights {
                     .post();
             String data = doc.body().text();
             JSONObject jsonAll = new JSONObject(data);
-            System.out.println(jsonAll);
             if (jsonAll.getString("msg").equals("OK")) {
                 token = URLEncoder.encode(jsonAll.getJSONObject("data").getString("token"), StandardCharsets.UTF_8);
             }
@@ -53,7 +48,7 @@ public class BngelArknights {
      * @param page 查询寻访的第 page 页
      * @return 返回合成的寻访接口 URL
      */
-    public static String getRecruitingURL(int page) {
+    private String getRecruitingURL(int page) {
         return String.format("https://ak.hypergryph.com/user/api/inquiry/gacha?page=%d&token=%s", page, token);
     }
 
@@ -65,7 +60,7 @@ public class BngelArknights {
      *                    isNew: 是否全新获得
      *                    rarity: 稀有度等级(0-5 为 1-6 星)
      */
-    public static List<RecruitingOperator> getRecruiting(int page) {
+    public List<RecruitingOperator> getRecruiting(int page) {
         String url = getRecruitingURL(page);
         ArrayList<RecruitingOperator> recruitingOperators = new ArrayList<RecruitingOperator>();
         try {
@@ -98,27 +93,44 @@ public class BngelArknights {
     /***
      * 查询用户当前多少抽未出过六星
      */
-    public static int getWaterLevel() {
+    public int getWaterLevel() {
         int cur = 0;
         List<RecruitingOperator> recruitingList = new ArrayList<RecruitingOperator>();
         for (int i=1; i<= totalPage; i++)
             recruitingList.addAll(getRecruiting(i));
         for (RecruitingOperator recruitingOperator : recruitingList) {
-            if (recruitingOperator.rarity == 5 && recruitingOperator.isNew)
+            if (recruitingOperator.getRarity() == 5 && recruitingOperator.getNew())
                 break;
             cur ++;
         }
         return cur;
     }
 
-    public static void main(String[] args){
-        initArknightsToken(Config.phone, Config.password);
-        for (int i=1; i<= totalPage; i++) {
-            List<RecruitingOperator> recruitingList = getRecruiting(i);
-            for (RecruitingOperator recruitingOperator : recruitingList) {
-                System.out.printf("name:%s isNew:%s rarity:%d%n", recruitingOperator.name, recruitingOperator.isNew, recruitingOperator.rarity);
-            }
+    /***
+     * 查询Doctor的uid和名称
+     * @return Doctor 信息
+     */
+    public Doctor getDoctor() {
+        Doctor doctor = new Doctor("", "", 1);
+        try {
+            JSONObject channelToken = new JSONObject();
+            channelToken.put("token", token);
+            Document doc = Jsoup.connect(arknights_basic)
+                    .ignoreContentType(true)
+                    .data("appId", "1")
+                    .data("channelMasterId", "1")
+                    .data("channelToken", channelToken.toString())
+                    .userAgent("Mozilla")
+                    .cookie("auth", "token")
+                    .timeout(3000)
+                    .post();
+            String data = doc.body().text();
+            JSONObject jsonAll = new JSONObject(data);
+            JSONObject info = jsonAll.getJSONObject("data");
+            doctor = new Doctor(info.getString("uid"), info.getString("nickName"), info.getInt("guest"));
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        System.out.println(getWaterLevel());
+        return doctor;
     }
 }
