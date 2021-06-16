@@ -1,9 +1,9 @@
-public class Operator {
+public class RecruitingOperator {
     public String name;
     public Boolean isNew;
     public int rarity;
 
-    Operator(String name, Boolean isNew, int rarity) {
+    RecruitingOperator(String name, Boolean isNew, int rarity) {
         this.name = name;
         this.isNew = isNew;
         this.rarity = rarity;
